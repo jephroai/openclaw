@@ -223,6 +223,7 @@ export type HookAgentPayload = {
   message: string;
   name: string;
   agentId?: string;
+  idempotencyKey?: string;
   wakeMode: "now" | "next-heartbeat";
   sessionKey?: string;
   deliver: boolean;
@@ -261,6 +262,21 @@ export function resolveHookChannel(raw: unknown): HookMessageChannel | null {
 
 export function resolveHookDeliver(raw: unknown): boolean {
   return raw !== false;
+}
+
+function resolveOptionalHookIdempotencyKey(raw: unknown): string | undefined {
+  return typeof raw === "string" && raw.trim() ? raw.trim() : undefined;
+}
+
+export function resolveHookIdempotencyKey(params: {
+  payload: Record<string, unknown>;
+  headers?: Record<string, string>;
+}): string | undefined {
+  return (
+    resolveOptionalHookIdempotencyKey(params.headers?.["idempotency-key"]) ||
+    resolveOptionalHookIdempotencyKey(params.headers?.["x-openclaw-idempotency-key"]) ||
+    resolveOptionalHookIdempotencyKey(params.payload.idempotencyKey)
+  );
 }
 
 export function resolveHookTargetAgentId(
@@ -366,6 +382,7 @@ export function normalizeAgentPayload(payload: Record<string, unknown>):
   const agentIdRaw = payload.agentId;
   const agentId =
     typeof agentIdRaw === "string" && agentIdRaw.trim() ? agentIdRaw.trim() : undefined;
+  const idempotencyKey = resolveOptionalHookIdempotencyKey(payload.idempotencyKey);
   const wakeMode = payload.wakeMode === "next-heartbeat" ? "next-heartbeat" : "now";
   const sessionKeyRaw = payload.sessionKey;
   const sessionKey =
@@ -396,6 +413,7 @@ export function normalizeAgentPayload(payload: Record<string, unknown>):
       message,
       name,
       agentId,
+      idempotencyKey,
       wakeMode,
       sessionKey,
       deliver,
